@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "493914490975",
+    "firebase_url": "https://ary-companion-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "ary-companion",
+    "storage_bucket": "ary-companion.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:493914490975:android:e49b8fd2a93722b4e133ea",
+        "android_client_info": {
+          "package_name": "com.michele.michelino"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "493914490975-9d2st20f9fbq5369mbjccn9icppg2fjs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB_Pd1S-jIw045IdPvMdFUF6USfBN0JX4Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "493914490975-9d2st20f9fbq5369mbjccn9icppg2fjs.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "493914490975-4o7v78t89qvkn6pj1u3p6b60ggq07din.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.michele.michelino"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
