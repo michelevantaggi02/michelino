@@ -42,3 +42,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+.gradle/6.8/fileChanges/last-build.bin
+.gradle/6.8/fileHashes/fileHashes.lock
+.gradle/6.8/gc.properties
+.gradle/buildOutputCleanup/buildOutputCleanup.lock
+.gradle/buildOutputCleanup/cache.properties
+.gradle/checksums/checksums.lock
+.gradle/configuration-cache/gc.properties
+.gradle/vcs-1/gc.properties
