@@ -1,75 +1,24 @@
 import 'package:animated_background/animated_background.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:michelino/calendar.dart';
+import 'package:michelino/lista.dart';
 import 'firebase_options.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import "package:firebase_database/firebase_database.dart";
 import "package:http/http.dart";
+//import "package:flutter_localizations/flutter_localizations.dart";
 
 var flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-void showFlutterNotification(RemoteMessage message) {
-  RemoteNotification? notification = message.notification;
-  AndroidNotification? android = message.notification?.android;
-  if (notification != null && android != null && !kIsWeb) {
-    flutterLocalNotificationsPlugin.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          channel.id,
-          channel.name,
-          channelDescription: channel.description,
-          // TODO add a proper drawable resource to android, for now using
-          //      one that already exists in example app.
-          icon: 'notification',
-        ),
-      ),
-    );
-  }
-}
+const bool michi = bool.fromEnvironment("MICHI");
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform,);
-
-  await setupFlutterNotifications();
-  //showFlutterNotification(message);
-  print("Handling a background message: ${message.messageId}");
-}
-
-late AndroidNotificationChannel channel;
-
-bool isFlutterLocalNotificationsInitialized = false;
-
-Future<void> setupFlutterNotifications() async {
-  if (isFlutterLocalNotificationsInitialized) {
-    return;
-  }
-  channel = const AndroidNotificationChannel(
-    'high_importance_channel', // id
-    'High Importance Notifications', // title
-    description:
-    'This channel is used for important notifications.', // description
-    importance: Importance.high,
-
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-  /// Create an Android Notification Channel.
-  ///
-  /// We use this channel in the `AndroidManifest.xml` file to override the
-  /// default FCM channel to enable heads up notifications.
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-      AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(channel);
 
   /// Update the iOS foreground notification presentation options to allow
   /// heads up notifications.
@@ -77,33 +26,38 @@ Future<void> setupFlutterNotifications() async {
     alert: true,
     badge: true,
     sound: true,
-
   );
-  isFlutterLocalNotificationsInitialized = true;
+
+  FirebaseMessaging.instance.setAutoInitEnabled(true);
+
+  //await setupFlutterNotifications();
+  //showFlutterNotification(message);
+  //print("Handling a background message: ${message.messageId}");
 }
 
-
-  void main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  print(Firebase.apps.isEmpty);
+  //print(Firebase.apps.isEmpty);
   if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform,);
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   }
+
+  //print('ENV : ${const bool.fromEnvironment("MICHI")}');
 
   runApp(const MyApp());
 }
 
-class Not extends ChangeNotifier{
-
+class Not extends ChangeNotifier {
   ThemeMode _mode = ThemeMode.system;
   ThemeMode get getMode => _mode;
 
-  void updateMode(ThemeMode mode){
+  void updateMode(ThemeMode mode) {
     _mode = mode;
     notifyListeners();
   }
-
 }
 
 Not mode = Not();
@@ -114,15 +68,25 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(animation: mode, builder: (context, child) => MaterialApp(
-        title: 'My Michelino',
-        theme: ThemeData(
-          primarySwatch: Colors.teal,
-        ),
-        darkTheme: ThemeData.dark(),
-        themeMode: mode.getMode,
-        home: const MyHomePage(title: 'My Michelino'),)
-    );
+    return AnimatedBuilder(
+        animation: mode,
+        builder: (context, child) => MaterialApp(
+              /*localizationsDelegates: const [GlobalMaterialLocalizations.delegate],
+              supportedLocales: [
+                const Locale("en", ""),
+                const Locale("it", "IT")
+              ],*/
+              title: 'My Michelino',
+              theme: ThemeData(
+                  primarySwatch: Colors.teal,
+                  appBarTheme: const AppBarTheme(foregroundColor: Colors.black),
+                  primaryTextTheme: const TextTheme(
+                      headline6: TextStyle(color: Colors.black))),
+              darkTheme: ThemeData(
+                  brightness: Brightness.dark, primarySwatch: Colors.teal),
+              themeMode: mode.getMode,
+              home: const MyHomePage(title: 'My Michelino'),
+            ));
   }
 }
 
@@ -135,7 +99,10 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateMixin{
+bool inviato = false;
+
+class _MyHomePageState extends State<MyHomePage>
+    with SingleTickerProviderStateMixin {
   FirebaseDatabase database = FirebaseDatabase.instance;
   List<String> oggi = [];
   Map<String, List<String>> totale = {};
@@ -146,22 +113,19 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     "idle": "a non fare niente",
     "food": "mangiando",
     "sleep": "dormendo",
-    "love" : "pensando alla sua Bubi",
+    "love": "pensando alla sua Bubi",
   };
   String nomeOggi = DateFormat("yyyy-MM-dd").format(DateTime.now());
 
-  bool inviato = false;
-
   @override
   void initState() {
-
     database.ref("stato").onValue.listen((event) {
       if (mounted) {
         setState(() {
           stato = event.snapshot.value as String;
-          if(stato == "sleep"){
+          if (stato == "sleep") {
             mode.updateMode(ThemeMode.dark);
-          }else{
+          } else {
             mode.updateMode(ThemeMode.system);
           }
         });
@@ -181,11 +145,16 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
     });
 
     FirebaseMessaging.instance.subscribeToTopic("michelino");
+
+    flutterLocalNotificationsPlugin.cancelAll();
+
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      if(!inviato) {
-        ScaffoldMessenger.of(context).showSnackBar( SnackBar(content: Text(message.notification?.body ?? "Hai ricevuto un bacino!")));
+      if (!inviato) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text(message.notification?.body ?? "Hai ricevuto un bacino!")));
       }
       inviato = false;
     });
@@ -198,7 +167,7 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
 
   var particle = Paint()
     ..style = PaintingStyle.stroke
-  ..strokeWidth=1.0;
+    ..strokeWidth = 1.0;
   ParticleOptions opt = ParticleOptions(
     image: Image.asset("immagini/emoji.png"),
     minOpacity: .5,
@@ -215,125 +184,199 @@ class _MyHomePageState extends State<MyHomePage> with SingleTickerProviderStateM
       appBar: AppBar(
         title: Text(widget.title),
         centerTitle: true,
-        actions: [
-          /*DropdownButton(items: [
-            for(String i in stati.keys)
-              DropdownMenuItem(value: i,child: Text(i),)
-
-          ], onChanged: (value) => database.ref("stato").set(value),
-          value: stato,)*/
-        ],
-
+        actions: null,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
       body: AnimatedBackground(
         vsync: this,
-        behaviour: stato == "love" ? RandomParticleBehaviour(paint: particle, options: opt): EmptyBehaviour(),
+        behaviour: stato == "love"
+            ? RandomParticleBehaviour(paint: particle, options: opt)
+            : EmptyBehaviour(),
         child: Center(
-            child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            children: [
-              Card(
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Image(
-                          image: AssetImage("immagini/riccio_$stato.gif"),
+            child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+              child: Image(
+                image: AssetImage("immagini/riccio_$stato.gif"),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Card(
+                  elevation: 100,
+                  margin: const EdgeInsets.symmetric(horizontal: 0),
+                  shape: const RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(15))),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      children: [
+                        Text(
+                          "Il tuo michelino in questo momento sta ${stati[stato]}",
+                          textScaleFactor: 1.5,
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                      Text(
-                        "Il tuo michelino in questo momento sta ${stati[stato]}",
-                        textScaleFactor: 1.5,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                        if (michi)
+                          DropdownButton(
+                            items: [
+                              for (String i in stati.keys)
+                                DropdownMenuItem(
+                                  value: i,
+                                  child: Text(i),
+                                )
+                            ],
+                            onChanged: (value) =>
+                                database.ref("stato").set(value),
+                            value: stato,
+                          ),
+                        michi
+                            ? Row(
+                                children: [
+                                  ButtonAzione(
+                                      info: "", testo: "Invia un bacino"),
+                                  ButtonAzione(
+                                      info:
+                                          "?body=Il tuo Michelino è in viaggio",
+                                      testo: "Invia partenza"),
+                                  ButtonAzione(
+                                      info: "?body=Il tuo Michelino è arrivato",
+                                      testo: "Invia arrivato"),
+                                ],
+                              )
+                            : Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: ButtonAzione(
+                                    info: "", testo: "Invia un bacino"),
+                              ),
+                        const Divider(),
+                        Expanded(
+                          child: CustomList(
+                              titolo: ListTile(
+                                  onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              const CalendarWidget())),
+                                  leading: IconButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const CalendarWidget()));
+                                      },
+                                      icon: const Icon(Icons.calendar_month)),
+                                  title: const Text(
+                                    "I piani di oggi",
+                                    textScaleFactor: 1.5,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  trailing: IconButton(
+                                      onPressed: () => showDialog(
+                                            context: context,
+                                            builder: (context) => AlertDialog(
+                                                title: const Text(
+                                                    "Aggiungi un evento"),
+                                                content: TextField(
+                                                  controller: controller,
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                      onPressed: () {
+                                                        if (controller.value
+                                                            .text.isNotEmpty) {
+                                                          oggi.add(controller
+                                                              .value.text);
+
+                                                          //print(oggi);
+                                                          database
+                                                              .ref(
+                                                                  "calendario/$nomeOggi")
+                                                              .set(oggi);
+                                                        }
+                                                        controller.clear();
+                                                        Navigator.pop(context);
+                                                      },
+                                                      child: const Text("OK")),
+                                                  TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                              context),
+                                                      child:
+                                                          const Text("Annulla"))
+                                                ]),
+                                          ),
+                                      icon: const Icon(Icons.add))),
+                              context: context,
+                              giornoScelto: oggi,
+                              selezionato: DateTime.now()),
+                        ),
+                        /*Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: ListView.separated(
+                              itemBuilder: (BuildContext context, int index) {
+                                return ListTile(
+                                  title: Text(
+                                    oggi[index],
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  trailing: IconButton(
+                                    onPressed: () {
+                                      oggi.removeAt(index);
+                                      database
+                                          .ref("calendario/$nomeOggi")
+                                          .set(oggi);
+                                    },
+                                    icon:
+                                        const Icon(Icons.remove_circle_outline),
+                                  ),
+                                );
+                              },
+                              separatorBuilder:
+                                  (BuildContext context, int index) {
+                                return const Divider();
+                              },
+                              itemCount: oggi.length,
+                            ),
+                          ),
+                        )*/
+                      ],
+                    ),
                   ),
                 ),
               ),
-
-              ElevatedButton(onPressed: (){
-                    get(Uri.parse("http://michelevantaggi.altervista.org/michelino/"));
-                    inviato = true;
-
-                }, child: const Text("Invia un bacino")),
-              const Divider(),
-              ListTile(
-                  leading: IconButton(
-                      onPressed: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => CalendarWidget()));
-                      },
-                      icon: const Icon(Icons.calendar_month)),
-                  title: const Text(
-                    "I piani di oggi",
-                    textScaleFactor: 1.5,
-                    textAlign: TextAlign.center,
-                  ),
-                  trailing: IconButton(
-                      onPressed: () => showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                                title: const Text("Aggiungi un evento"),
-                                content: TextField(
-                                  controller: controller,
-                                ),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () {
-                                        if (controller.value.text.isNotEmpty) {
-                                          oggi.add(controller.value.text);
-
-                                          print(oggi);
-                                          database
-                                              .ref("calendario/$nomeOggi")
-                                              .set(oggi);
-                                        }
-                                        controller.clear();
-                                        Navigator.pop(context);
-                                      },
-                                      child: const Text("OK")),
-                                  TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text("Annulla"))
-                                ]),
-                          ),
-                      icon: const Icon(Icons.add))),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: ListView.separated(
-                    itemBuilder: (BuildContext context, int index) {
-                      return ListTile(
-                        title: Text(
-                          oggi[index],
-                          textAlign: TextAlign.center,
-                        ),
-                        trailing: IconButton(
-                          onPressed: () {
-                            oggi.removeAt(index);
-                            database.ref("calendario/$nomeOggi").set(oggi);
-                          },
-                          icon: const Icon(Icons.remove_circle_outline),
-                        ),
-                      );
-                    },
-                    separatorBuilder: (BuildContext context, int index) {
-                      return const Divider();
-                    },
-                    itemCount: oggi.length,
-                  ),
-                ),
-              )
-            ],
-          ),
+            )
+          ],
         )),
       ),
     );
   }
+}
+
+class ButtonAzione extends OutlinedButton {
+  ButtonAzione({super.key, required String info, required String testo})
+      : super(
+          onPressed: () {
+            get(Uri.parse(
+                "http://michelevantaggi.altervista.org/michelino/$info"));
+            inviato = !michi;
+          },
+          child: !michi
+              ? Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                  child: Text(
+                    testo,
+                    textScaleFactor: 1.3,
+                  ),
+                )
+              : Text(
+                  testo,
+                ),
+        );
 }
