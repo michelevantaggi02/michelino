@@ -21,6 +21,17 @@ class CalendarState extends State<CalendarWidget> {
   FirebaseDatabase database = FirebaseDatabase.instance;
   TextEditingController controller = TextEditingController();
 
+  void selezionaGiorni(DateTime selectedDay, DateTime focusedDay) {
+    if (mounted) {
+      setState(() {
+        //print("$selectedDay $focusedDay");
+        focus = focusedDay;
+        selezionato = selectedDay;
+        giornoScelto = info[format.format(selezionato)] ?? [];
+      });
+    }
+  }
+
   @override
   void initState() {
     database.ref("calendario").onValue.listen((event) {
@@ -146,14 +157,8 @@ class CalendarState extends State<CalendarWidget> {
                 formato = format;
               }),
               selectedDayPredicate: (day) => isSameDay(selezionato, day),
-              onDaySelected: (selectedDay, focusedDay) {
-                setState(() {
-                  //print("$selectedDay $focusedDay");
-                  focus = focusedDay;
-                  selezionato = selectedDay;
-                  giornoScelto = info[format.format(selezionato)] ?? [];
-                });
-              },
+              onDaySelected: (selectedDay, focusedDay) =>
+                  selezionaGiorni(selectedDay, focusedDay),
               eventLoader: (day) => info[format.format(day)] ?? [],
               calendarBuilders: CalendarBuilders(
                   dowBuilder: (context, day) => Center(
@@ -170,74 +175,97 @@ class CalendarState extends State<CalendarWidget> {
                 shape: const RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.vertical(top: Radius.circular(15))),
-                child: CustomList(
-                  giornoScelto: giornoScelto,
-                  context: context,
-                  titolo: Theme(
-                    data: ThemeData(
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        brightness: Theme.of(context).brightness),
-                    child: ListTile(
-                      onTap: () => setState(() {
-                        focus = selezionato;
-                      }),
-                      title: Text(
-                        "${[
-                          "Lunedì",
-                          "Martedì",
-                          "Mercoledì",
-                          "Giovedì",
-                          "Venerdì",
-                          "Sabato",
-                          "Domenica"
-                        ][selezionato.weekday - 1]} ${selezionato.day}/${selezionato.month}/${selezionato.year}",
-                        textScaleFactor: 1.3,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      trailing: Theme(
-                        data: Theme.of(context),
-                        child: IconButton(
-                            onPressed: () => showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                      title: const Text("Aggiungi un evento"),
-                                      content: SizedBox(
-                                        width: 1000,
-                                        child: TextField(
-                                          controller: controller,
-                                        ),
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                            onPressed: () {
-                                              if (controller
-                                                  .value.text.isNotEmpty) {
-                                                giornoScelto
-                                                    .add(controller.value.text);
+                child: GestureDetector(
+                  onHorizontalDragEnd: (details){
+                    if(details.primaryVelocity! < 0){
+                      selezionaGiorni(selezionato.add(const Duration(days: 1)), focus);
+                    }else if(details.primaryVelocity! > 0){
 
-                                                database
-                                                    .ref(
-                                                        "calendario/${format.format(selezionato)}")
-                                                    .set(giornoScelto);
-                                              }
-                                              controller.clear();
-                                              Navigator.pop(context);
-                                            },
-                                            child: const Text("OK")),
-                                        TextButton(
-                                            onPressed: () {
-                                              controller.clear();
-                                              Navigator.pop(context);
-                                            },
-                                            child: const Text("Annulla"))
-                                      ]),
-                                ),
-                            icon: const Icon(Icons.add)),
+                      selezionaGiorni(selezionato.subtract(const Duration(days: 1)), focus);
+                    }
+                  },
+                  child: CustomList(
+                    giornoScelto: giornoScelto,
+                    context: context,
+                    titolo: Theme(
+                      data: ThemeData(
+                          splashColor: Colors.transparent,
+                          highlightColor: Colors.transparent,
+                          brightness: Theme.of(context).brightness),
+                      child: ListTile(
+                        onTap: () => setState(() {
+                          focus = selezionato;
+                        }),
+                        onLongPress: () =>
+                            selezionaGiorni(DateTime.now(), DateTime.now()),
+                        title: Text(
+                          "${[
+                            "Lunedì",
+                            "Martedì",
+                            "Mercoledì",
+                            "Giovedì",
+                            "Venerdì",
+                            "Sabato",
+                            "Domenica"
+                          ][selezionato.weekday - 1]} ${selezionato.day}/${selezionato.month}/${selezionato.year}",
+                          textScaleFactor: 1.3,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        leading: Theme(
+                          data: Theme.of(context),
+                          child: IconButton(
+                              onPressed: () => showDialog(
+                                    context: context,
+                                    builder: (context) => SearchDialog(info),
+                                    useRootNavigator: false,
+                                  ).then(
+                                      (value) => selezionaGiorni(value, value)),
+                              icon: const Icon(Icons.search)),
+                        ),
+                        trailing: Theme(
+                          data: Theme.of(context),
+                          child: IconButton(
+                              onPressed: () => showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                        title: const Text("Aggiungi un evento"),
+                                        content: SizedBox(
+                                          width: 1000,
+                                          child: TextField(
+                                            controller: controller,
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                              onPressed: () {
+                                                if (controller
+                                                    .value.text.isNotEmpty) {
+                                                  giornoScelto
+                                                      .add(controller.value.text);
+
+                                                  database
+                                                      .ref(
+                                                          "calendario/${format.format(selezionato)}")
+                                                      .set(giornoScelto);
+                                                }
+                                                controller.clear();
+                                                Navigator.pop(context);
+                                              },
+                                              child: const Text("OK")),
+                                          TextButton(
+                                              onPressed: () {
+                                                controller.clear();
+                                                Navigator.pop(context);
+                                              },
+                                              child: const Text("Annulla"))
+                                        ]),
+                                  ),
+                              icon: const Icon(Icons.add)),
+                        ),
                       ),
                     ),
+                    selezionato: selezionato,
                   ),
-                  selezionato: selezionato,
                 )),
           )
         ],
@@ -274,4 +302,112 @@ class StileCalendario extends CalendarStyle {
               shape: BoxShape.circle),
           holidayTextStyle: const TextStyle(color: Colors.red),
         );
+}
+
+class SearchDialog extends StatefulWidget {
+  final Map<String, List<String>> lista;
+  const SearchDialog(this.lista, {super.key});
+
+  @override
+  State<StatefulWidget> createState() {
+    return _SearchState(lista);
+  }
+}
+
+class _SearchState extends State<SearchDialog> {
+  DateFormat format = DateFormat("dd/MM/yyyy");
+
+  late final List<Map<String, dynamic>> lista;
+  TextEditingController controller = TextEditingController();
+  String contained = "";
+
+  _SearchState(Map<String, List<String>> lista) {
+    List<Map<String, dynamic>> temp = [];
+    lista.forEach((key, value) {
+      DateTime data = DateTime.parse(key);
+      value.forEach((element) {
+        temp.add({"data": data, "testo": element});
+      });
+    });
+    temp.sort(
+      (a, b) =>
+          (a["data"] as DateTime).isBefore(b["data"] as DateTime) ? 1 : -1,
+    );
+
+    this.lista = temp;
+  }
+
+  @override
+  void initState() {
+    controller.addListener(() {
+      if (mounted) {
+        setState(() {
+          contained = controller.text;
+        });
+      }
+    });
+
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    List<Map<String, dynamic>> filtrato = lista
+        .where((element) => (element["testo"] as String).contains(contained))
+        .toList();
+
+    return AlertDialog(
+      title: const Text("Cerca un evento"),
+      content: SizedBox(
+        height: 330,
+        width: 1000,
+        child: Column(
+          children: [
+            TextField(
+              controller: controller,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Container(
+                height: 237,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: Theme.of(context).backgroundColor,
+                ),
+                child: ListView.separated(
+                  itemCount: filtrato.length,
+                  itemBuilder: (context, index) {
+                    Map<String, dynamic> value = filtrato[index];
+                    return ListTile(
+                      title: Text(value["testo"], textAlign: TextAlign.center),
+                      subtitle: Text(format.format(value["data"])),
+                      onTap: () {
+                        Navigator.pop(context, value["data"]);
+                      },
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    );
+                  },
+                  separatorBuilder: (BuildContext context, int index) {
+                    return const Divider();
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        ElevatedButton(
+            style: const ButtonStyle(
+                backgroundColor: MaterialStatePropertyAll(Colors.red)),
+            onPressed: () {
+              controller.clear();
+              Navigator.pop(context);
+            },
+            child: const Text("Annulla"))
+      ],
+      actionsAlignment: MainAxisAlignment.center,
+    );
+  }
 }
