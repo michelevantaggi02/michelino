@@ -197,6 +197,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       }
     });
 
+    FirebaseMessaging.instance.getToken().then(
         (value) => database.ref("token_${michi ? "michi" : "ary"}").set(value));
     database
         .ref("token_${michi ? "ary" : "michi"}")
