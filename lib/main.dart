@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:animated_background/animated_background.dart';
+import 'package:animations/animations.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -6,13 +11,14 @@ import 'package:intl/intl.dart';
 import 'package:michelino/calendar.dart';
 import 'package:michelino/lista.dart';
 import 'firebase_options.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import "package:firebase_database/firebase_database.dart";
 import "package:http/http.dart";
-//import "package:flutter_localizations/flutter_localizations.dart";
+import "package:url_launcher/url_launcher.dart";
 
 var flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 const bool michi = bool.fromEnvironment("MICHI");
+
+String altroToken = "";
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -101,8 +107,7 @@ class MyHomePage extends StatefulWidget {
 
 bool inviato = false;
 
-class _MyHomePageState extends State<MyHomePage>
-    with SingleTickerProviderStateMixin {
+class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   FirebaseDatabase database = FirebaseDatabase.instance;
   List<String> oggi = [];
   Map<String, List<String>> totale = {};
@@ -114,11 +119,58 @@ class _MyHomePageState extends State<MyHomePage>
     "food": "mangiando",
     "sleep": "dormendo",
     "love": "pensando alla sua Bubi",
+    "music": "ascoltando la musica",
   };
   String nomeOggi = DateFormat("yyyy-MM-dd").format(DateTime.now());
 
+  String messaggio = "";
+  bool visualizzaNotifica = false;
+  String linkCanzone = "";
+
+  void controllaMusica() async {
+    do{
+      var risposta = await get(Uri.parse(
+          "https://michelevantaggi.altervista.org/michelino/spoti/"));
+      print(risposta.body);
+      var canzone = jsonDecode(
+          risposta.body);
+      if(canzone != null && (stato == "idle" || stato == "music")){
+        if(mounted){
+          setState(() {
+            stati["music"] = "ascoltando ${canzone["item"]["name"]}";
+            linkCanzone = canzone["item"]["uri"];
+            stato = "music";
+          });
+        }
+        await Future.delayed(Duration(milliseconds: (canzone["item"]["duration_ms"] - canzone["progress_ms"]) / 4 ));
+      }else{
+        stato = "idle";
+      }
+
+    }while (stato == "music");
+  }
+
+  void gestisciMessaggi(RemoteMessage message) {
+    //ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (!inviato) {
+      /*ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text(message.notification?.body ?? "Hai ricevuto un bacino!")));*/
+      if (mounted) {
+        setState(() {
+          visualizzaNotifica = true;
+          messaggio = message.notification?.body ?? "Hai ricevuto un bacino!";
+        });
+      }
+    }
+
+    inviato = false;
+  }
+
   @override
   void initState() {
+    database.setPersistenceEnabled(true);
     database.ref("stato").onValue.listen((event) {
       if (mounted) {
         setState(() {
@@ -128,6 +180,7 @@ class _MyHomePageState extends State<MyHomePage>
           } else {
             mode.updateMode(ThemeMode.system);
           }
+          controllaMusica();
         });
       }
     });
@@ -144,20 +197,26 @@ class _MyHomePageState extends State<MyHomePage>
       }
     });
 
+        (value) => database.ref("token_${michi ? "michi" : "ary"}").set(value));
+    database
+        .ref("token_${michi ? "ary" : "michi"}")
+        .get()
+        .then((value) => altroToken = value.value as String);
+
     FirebaseMessaging.instance.subscribeToTopic("michelino");
 
     flutterLocalNotificationsPlugin.cancelAll();
 
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
-      if (!inviato) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content:
-                Text(message.notification?.body ?? "Hai ricevuto un bacino!")));
+    FirebaseMessaging.instance.getInitialMessage().then((value) {
+      if (value != null) {
+        gestisciMessaggi(value);
       }
-      inviato = false;
     });
+
+    FirebaseMessaging.onMessageOpenedApp
+        .listen((RemoteMessage message) => gestisciMessaggi(message));
+    FirebaseMessaging.onMessage
+        .listen((RemoteMessage message) => gestisciMessaggi(message));
 
     super.initState();
   }
@@ -179,180 +238,249 @@ class _MyHomePageState extends State<MyHomePage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        title: Text(widget.title),
-        centerTitle: true,
-        actions: null,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-      body: AnimatedBackground(
-        vsync: this,
-        behaviour: stato == "love"
-            ? RandomParticleBehaviour(paint: particle, options: opt)
-            : EmptyBehaviour(),
-        child: Center(
-            child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-              child: Image(
-                image: AssetImage("immagini/riccio_$stato.gif"),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Card(
-                  elevation: 100,
-                  margin: const EdgeInsets.symmetric(horizontal: 0),
-                  shape: const RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(15))),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      children: [
-                        Text(
-                          "Il tuo michelino in questo momento sta ${stati[stato]}",
-                          textScaleFactor: 1.5,
-                          textAlign: TextAlign.center,
-                        ),
-                        if (michi)
-                          DropdownButton(
-                            items: [
-                              for (String i in stati.keys)
-                                DropdownMenuItem(
-                                  value: i,
-                                  child: Text(i),
-                                )
-                            ],
-                            onChanged: (value) =>
-                                database.ref("stato").set(value),
-                            value: stato,
-                          ),
-                        michi
-                            ? Row(
-                                children: [
-                                  ButtonAzione(
-                                      info: "", testo: "Invia un bacino"),
-                                  ButtonAzione(
-                                      info:
-                                          "?body=Il tuo Michelino è in viaggio",
-                                      testo: "Invia partenza"),
-                                  ButtonAzione(
-                                      info: "?body=Il tuo Michelino è arrivato",
-                                      testo: "Invia arrivato"),
-                                ],
-                              )
-                            : Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: ButtonAzione(
-                                    info: "", testo: "Invia un bacino"),
+    print(altroToken.isNotEmpty);
+    return PageTransitionSwitcher(
+      transitionBuilder: (Widget child, Animation<double> primaryAnimation,
+          Animation<double> secondaryAnimation) {
+        return SharedAxisTransition(
+          animation: primaryAnimation,
+          secondaryAnimation: secondaryAnimation,
+          transitionType: SharedAxisTransitionType.scaled,
+          child: child,
+        );
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        appBar: AppBar(
+          title: Text(widget.title),
+          centerTitle: true,
+          actions: null,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+        ),
+        body: AnimatedBackground(
+          vsync: this,
+          behaviour: stato == "love"
+              ? RandomParticleBehaviour(paint: particle, options: opt)
+              : EmptyBehaviour(),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Center(
+                  child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                    child: Image(
+                      image: AssetImage("immagini/riccio_$stato.gif"),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Card(
+                        elevation: 100,
+                        margin: const EdgeInsets.symmetric(horizontal: 0),
+                        shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(15))),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  if(stato == "music"){
+                                    launchUrl(
+                                      Uri.parse(linkCanzone),
+                                      mode: LaunchMode.externalNonBrowserApplication
+                                    );
+                                  }
+                                },
+                                child: Text(
+                                  "Il tuo michelino in questo momento sta ${stati[stato]}",
+                                  textScaleFactor: 1.5,
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
-                        const Divider(),
-                        Expanded(
-                          child: CustomList(
-                              titolo: ListTile(
-                                  onTap: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              const CalendarWidget())),
-                                  leading: IconButton(
-                                      onPressed: () {
-                                        Navigator.push(
+                              if (michi)
+                                DropdownButton(
+                                  items: [
+                                    for (String i in stati.keys)
+                                      DropdownMenuItem(
+                                        value: i,
+                                        child: Text(i),
+                                      )
+                                  ],
+                                  onChanged: (value) =>
+                                      database.ref("stato").set(value),
+                                  value: stato,
+                                ),
+                              michi
+                                  ? Row(
+                                      children: [
+                                        ButtonAzione(
+                                            info: "", testo: "Invia un bacino"),
+                                        ButtonAzione(
+                                            info:
+                                                "?body=Il tuo Michelino è in viaggio",
+                                            testo: "Invia partenza"),
+                                        ButtonAzione(
+                                            info:
+                                                "?body=Il tuo Michelino è arrivato",
+                                            testo: "Invia arrivato"),
+                                      ],
+                                    )
+                                  : Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: ButtonAzione(
+                                          info: "", testo: "Invia un bacino"),
+                                    ),
+                              const Divider(),
+                              Expanded(
+                                child: CustomList(
+                                    titolo: ListTile(
+                                        onTap: () => Navigator.push(
                                             context,
                                             MaterialPageRoute(
                                                 builder: (context) =>
-                                                    const CalendarWidget()));
-                                      },
-                                      icon: const Icon(Icons.calendar_month)),
-                                  title: const Text(
-                                    "I piani di oggi",
-                                    textScaleFactor: 1.5,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  trailing: IconButton(
-                                      onPressed: () => showDialog(
-                                            context: context,
-                                            builder: (context) => AlertDialog(
-                                                title: const Text(
-                                                    "Aggiungi un evento"),
-                                                content: TextField(
-                                                  controller: controller,
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                      onPressed: () {
-                                                        if (controller.value
-                                                            .text.isNotEmpty) {
-                                                          oggi.add(controller
-                                                              .value.text);
+                                                    const CalendarWidget())),
+                                        leading: IconButton(
+                                            onPressed: () {
+                                              Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          const CalendarWidget()));
+                                            },
+                                            icon: const Icon(
+                                                Icons.calendar_month)),
+                                        title: const Text(
+                                          "I piani di oggi",
+                                          textScaleFactor: 1.5,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        trailing: IconButton(
+                                            onPressed: () => showDialog(
+                                                  context: context,
+                                                  builder: (context) =>
+                                                      AlertDialog(
+                                                          title: const Text(
+                                                              "Aggiungi un evento"),
+                                                          content: TextField(
+                                                            controller:
+                                                                controller,
+                                                          ),
+                                                          actions: [
+                                                        TextButton(
+                                                            onPressed: () {
+                                                              if (controller
+                                                                  .value
+                                                                  .text
+                                                                  .isNotEmpty) {
+                                                                oggi.add(
+                                                                    controller
+                                                                        .value
+                                                                        .text);
 
-                                                          //print(oggi);
-                                                          database
-                                                              .ref(
-                                                                  "calendario/$nomeOggi")
-                                                              .set(oggi);
-                                                        }
-                                                        controller.clear();
-                                                        Navigator.pop(context);
-                                                      },
-                                                      child: const Text("OK")),
-                                                  TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                              context),
-                                                      child:
-                                                          const Text("Annulla"))
-                                                ]),
-                                          ),
-                                      icon: const Icon(Icons.add))),
-                              context: context,
-                              giornoScelto: oggi,
-                              selezionato: DateTime.now()),
-                        ),
-                        /*Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: ListView.separated(
-                              itemBuilder: (BuildContext context, int index) {
-                                return ListTile(
-                                  title: Text(
-                                    oggi[index],
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  trailing: IconButton(
-                                    onPressed: () {
-                                      oggi.removeAt(index);
-                                      database
-                                          .ref("calendario/$nomeOggi")
-                                          .set(oggi);
-                                    },
-                                    icon:
-                                        const Icon(Icons.remove_circle_outline),
-                                  ),
-                                );
-                              },
-                              separatorBuilder:
-                                  (BuildContext context, int index) {
-                                return const Divider();
-                              },
-                              itemCount: oggi.length,
-                            ),
+                                                                //print(oggi);
+                                                                database
+                                                                    .ref(
+                                                                        "calendario/$nomeOggi")
+                                                                    .set(oggi);
+                                                              }
+                                                              controller
+                                                                  .clear();
+                                                              Navigator.pop(
+                                                                  context);
+                                                            },
+                                                            child: const Text(
+                                                                "OK")),
+                                                        TextButton(
+                                                            onPressed: () =>
+                                                                Navigator.pop(
+                                                                    context),
+                                                            child: const Text(
+                                                                "Annulla"))
+                                                      ]),
+                                                ),
+                                            icon: const Icon(Icons.add))),
+                                    context: context,
+                                    giornoScelto: oggi,
+                                    selezionato: DateTime.now()),
+                              ),
+                              /*Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: ListView.separated(
+                                  itemBuilder: (BuildContext context, int index) {
+                                    return ListTile(
+                                      title: Text(
+                                        oggi[index],
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      trailing: IconButton(
+                                        onPressed: () {
+                                          oggi.removeAt(index);
+                                          database
+                                              .ref("calendario/$nomeOggi")
+                                              .set(oggi);
+                                        },
+                                        icon:
+                                            const Icon(Icons.remove_circle_outline),
+                                      ),
+                                    );
+                                  },
+                                  separatorBuilder:
+                                      (BuildContext context, int index) {
+                                    return const Divider();
+                                  },
+                                  itemCount: oggi.length,
+                                ),
+                              ),
+                            )*/
+                            ],
                           ),
-                        )*/
-                      ],
+                        ),
+                      ),
                     ),
+                  )
+                ],
+              )),
+              Positioned(
+                top: 10,
+                child: AnimatedOpacity(
+                  opacity: visualizzaNotifica ? 1 : 0,
+                  duration: const Duration(seconds: 1),
+                  onEnd: () {
+                    if (mounted) {
+                      setState(() {
+                        visualizzaNotifica = false;
+                      });
+                    }
+                  },
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Image.asset(
+                        "immagini/emoji.png",
+                        width: 300,
+                        fit: BoxFit.fill,
+                      ),
+                      SizedBox(
+                          width: 200,
+                          child: Text(
+                            messaggio,
+                            textAlign: TextAlign.center,
+                            textScaleFactor: 2,
+                          )),
+                    ],
                   ),
                 ),
-              ),
-            )
-          ],
-        )),
+              )
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -363,8 +491,14 @@ class ButtonAzione extends OutlinedButton {
       : super(
           onPressed: () {
             get(Uri.parse(
-                "http://michelevantaggi.altervista.org/michelino/$info"));
+                "http://michelevantaggi.altervista.org/michelino/$info${altroToken.isNotEmpty ? "&token=$altroToken" : ""}"));
             inviato = !michi;
+
+            if (testo == "Invia partenza") {
+              launchUrl(
+                  mode: LaunchMode.externalNonBrowserApplication,
+                  Uri.parse("spotify:open"));
+            }
           },
           child: !michi
               ? Padding(
