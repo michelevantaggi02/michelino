@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:animated_background/animated_background.dart';
 import 'package:animations/animations.dart';
@@ -131,7 +130,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     do{
       var risposta = await get(Uri.parse(
           "https://michelevantaggi.altervista.org/michelino/spoti/"));
-      print(risposta.body);
+      //print(risposta.body);
       var canzone = jsonDecode(
           risposta.body);
       if(canzone != null && (stato == "idle" || stato == "music")){
@@ -142,17 +141,15 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
             stato = "music";
           });
         }
-        await Future.delayed(Duration(milliseconds: (canzone["item"]["duration_ms"] - canzone["progress_ms"]) / 4 ));
-      }else{
-        stato = "idle";
+        await Future.delayed(const Duration(seconds: 5 ));
       }
 
-    }while (stato == "music");
+    }while (stato == "music" || stato == "idle");
   }
 
   void gestisciMessaggi(RemoteMessage message) {
     //ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
+    //print("Messaggio ricevuto, stato: $stato");
     if (!inviato) {
       /*ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content:
@@ -163,9 +160,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
           messaggio = message.notification?.body ?? "Hai ricevuto un bacino!";
         });
       }
+      inviato = false;
     }
 
-    inviato = false;
   }
 
   @override
@@ -202,7 +199,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     database
         .ref("token_${michi ? "ary" : "michi"}")
         .get()
-        .then((value) => altroToken = value.value as String);
+        .then((value) => altroToken = (value.value as String));
 
     FirebaseMessaging.instance.subscribeToTopic("michelino");
 
@@ -239,7 +236,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    print(altroToken.isNotEmpty);
+    //print(stato);
     return PageTransitionSwitcher(
       transitionBuilder: (Widget child, Animation<double> primaryAnimation,
           Animation<double> secondaryAnimation) {
@@ -456,6 +453,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   onEnd: () {
                     if (mounted) {
                       setState(() {
+                        //print(stato);
                         visualizzaNotifica = false;
                       });
                     }
@@ -491,8 +489,11 @@ class ButtonAzione extends OutlinedButton {
   ButtonAzione({super.key, required String info, required String testo})
       : super(
           onPressed: () {
+            //print("http://michelevantaggi.altervista.org/michelino/${info.isNotEmpty ? "$info&" : "?" }${altroToken.isNotEmpty ? "token=$altroToken" : ""}");
             get(Uri.parse(
-                "http://michelevantaggi.altervista.org/michelino/$info${altroToken.isNotEmpty ? "&token=$altroToken" : ""}"));
+                "http://michelevantaggi.altervista.org/michelino/${info.isNotEmpty ? "$info&" : "?" }${altroToken.isNotEmpty ? "&token=$altroToken" : ""}"));
+
+            //risposta.then((value) {print(value.body);});
             inviato = !michi;
 
             if (testo == "Invia partenza") {
