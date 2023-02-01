@@ -149,8 +149,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   void gestisciMessaggi(RemoteMessage message) {
     //ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    //print("Messaggio ricevuto, stato: $stato");
-    if (!inviato) {
+    print("Messaggio ricevuto, stato: $stato");
+
       /*ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content:
                 Text(message.notification?.body ?? "Hai ricevuto un bacino!")));*/
@@ -160,8 +160,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
           messaggio = message.notification?.body ?? "Hai ricevuto un bacino!";
         });
       }
-      inviato = false;
-    }
+      //inviato = false;
+
 
   }
 
@@ -494,7 +494,7 @@ class ButtonAzione extends OutlinedButton {
                 "http://michelevantaggi.altervista.org/michelino/${info.isNotEmpty ? "$info&" : "?" }${altroToken.isNotEmpty ? "&token=$altroToken" : ""}"));
 
             //risposta.then((value) {print(value.body);});
-            inviato = !michi;
+            //inviato = !michi;
 
             if (testo == "Invia partenza") {
               launchUrl(
