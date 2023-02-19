@@ -9,6 +9,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:michelino/calendar.dart';
 import 'package:michelino/lista.dart';
+import 'package:michelino/tabella.dart';
 import 'firebase_options.dart';
 import "package:firebase_database/firebase_database.dart";
 import "package:http/http.dart";
@@ -127,42 +128,38 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   String linkCanzone = "";
 
   void controllaMusica() async {
-    do{
-      var risposta = await get(Uri.parse(
-          "https://michelevantaggi.altervista.org/michelino/spoti/"));
+    do {
+      var risposta = await get(
+          Uri.parse("https://michelevantaggi.altervista.org/michelino/spoti/"));
       //print(risposta.body);
-      var canzone = jsonDecode(
-          risposta.body);
-      if(canzone != null && (stato == "idle" || stato == "music")){
-        if(mounted){
+      var canzone = jsonDecode(risposta.body);
+      if (canzone != null && (stato == "idle" || stato == "music")) {
+        if (mounted) {
           setState(() {
             stati["music"] = "ascoltando ${canzone["item"]["name"]}";
             linkCanzone = canzone["item"]["uri"];
             stato = "music";
           });
         }
-        await Future.delayed(const Duration(seconds: 5 ));
+        await Future.delayed(const Duration(seconds: 5));
       }
-
-    }while (stato == "music" || stato == "idle");
+    } while (stato == "music" || stato == "idle");
   }
 
   void gestisciMessaggi(RemoteMessage message) {
     //ScaffoldMessenger.of(context).hideCurrentSnackBar();
     print("Messaggio ricevuto, stato: $stato");
 
-      /*ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    /*ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content:
                 Text(message.notification?.body ?? "Hai ricevuto un bacino!")));*/
-      if (mounted) {
-        setState(() {
-          visualizzaNotifica = true;
-          messaggio = message.notification?.body ?? "Hai ricevuto un bacino!";
-        });
-      }
-      //inviato = false;
-
-
+    if (mounted) {
+      setState(() {
+        visualizzaNotifica = true;
+        messaggio = message.notification?.body ?? "Hai ricevuto un bacino!";
+      });
+    }
+    //inviato = false;
   }
 
   @override
@@ -264,187 +261,196 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              Center(
-                  child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-                    child: Image(
-                      image: AssetImage("immagini/riccio_$stato.gif"),
+              PageView(children: [
+                Center(
+                    child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                      child: Image(
+                        image: AssetImage("immagini/riccio_$stato.gif"),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Card(
-                        elevation: 100,
-                        margin: const EdgeInsets.symmetric(horizontal: 0),
-                        shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(15))),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            children: [
-                              GestureDetector(
-                                onTap: () {
-                                  if(stato == "music"){
-                                    launchUrl(
-                                      Uri.parse(linkCanzone),
-                                      mode: LaunchMode.externalNonBrowserApplication
-                                    );
-                                  }
-                                },
-                                child: Text(
-                                  "Il tuo michelino in questo momento sta ${stati[stato]}",
-                                  textScaleFactor: 1.5,
-                                  textAlign: TextAlign.center,
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Card(
+                          elevation: 100,
+                          margin: const EdgeInsets.symmetric(horizontal: 0),
+                          shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(15))),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    if (stato == "music") {
+                                      launchUrl(Uri.parse(linkCanzone),
+                                          mode: LaunchMode
+                                              .externalNonBrowserApplication);
+                                    }
+                                  },
+                                  child: Text(
+                                    "Il tuo michelino in questo momento sta ${stati[stato]}",
+                                    textScaleFactor: 1.5,
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
-                              ),
-                              if (michi)
-                                DropdownButton(
-                                  items: [
-                                    for (String i in stati.keys)
-                                      DropdownMenuItem(
-                                        value: i,
-                                        child: Text(i),
-                                      )
-                                  ],
-                                  onChanged: (value) =>
-                                      database.ref("stato").set(value),
-                                  value: stato,
-                                ),
-                              michi
-                                  ? Row(
-                                      children: [
-                                        ButtonAzione(
-                                            info: "", testo: "Invia un bacino"),
-                                        ButtonAzione(
-                                            info:
-                                                "?body=Il tuo Michelino è in viaggio",
-                                            testo: "Invia partenza"),
-                                        ButtonAzione(
+                                if (michi)
+                                  DropdownButton(
+                                    items: [
+                                      for (String i in stati.keys)
+                                        DropdownMenuItem(
+                                          value: i,
+                                          child: Text(i),
+                                        )
+                                    ],
+                                    onChanged: (value) =>
+                                        database.ref("stato").set(value),
+                                    value: stato,
+                                  ),
+                                michi
+                                    ? Row(
+                                        children: [
+                                          ButtonAzione(
+                                              info: "",
+                                              testo: "Invia un bacino"),
+                                          ButtonAzione(
+                                              info:
+                                                  "?body=Il tuo Michelino è in viaggio",
+                                              testo: "Invia partenza"),
+                                          ButtonAzione(
                                             info:
                                                 "?body=Il tuo Michelino è arrivato",
-                                            testo: "Invia arrivato"),
-                                      ],
-                                    )
-                                  : Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: ButtonAzione(
-                                          info: "", testo: "Invia un bacino"),
-                                    ),
-                              const Divider(),
-                              Expanded(
-                                child: CustomList(
-                                    titolo: ListTile(
-                                        onTap: () => Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const CalendarWidget())),
-                                        leading: IconButton(
-                                            onPressed: () {
-                                              Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          const CalendarWidget()));
-                                            },
-                                            icon: const Icon(
-                                                Icons.calendar_month)),
-                                        title: const Text(
-                                          "I piani di oggi",
-                                          textScaleFactor: 1.5,
+                                            testo: "Invia arrivato",
+                                          ),
+                                        ],
+                                      )
+                                    : Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: ButtonAzione(
+                                            info: "", testo: "Invia un bacino"),
+                                      ),
+                                const Divider(),
+                                Expanded(
+                                  child: CustomList(
+                                      titolo: ListTile(
+                                          onTap: () => Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const CalendarWidget())),
+                                          leading: IconButton(
+                                              onPressed: () {
+                                                Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            const CalendarWidget()));
+                                              },
+                                              icon: const Icon(
+                                                  Icons.calendar_month)),
+                                          title: const Text(
+                                            "I piani di oggi",
+                                            textScaleFactor: 1.5,
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          trailing: IconButton(
+                                              onPressed: () => showDialog(
+                                                    context: context,
+                                                    builder: (context) =>
+                                                        AlertDialog(
+                                                            title: const Text(
+                                                                "Aggiungi un evento"),
+                                                            content: TextField(
+                                                              controller:
+                                                                  controller,
+                                                            ),
+                                                            actions: [
+                                                          TextButton(
+                                                              onPressed: () {
+                                                                if (controller
+                                                                    .value
+                                                                    .text
+                                                                    .isNotEmpty) {
+                                                                  oggi.add(
+                                                                      controller
+                                                                          .value
+                                                                          .text);
+
+                                                                  //print(oggi);
+                                                                  database
+                                                                      .ref(
+                                                                          "calendario/$nomeOggi")
+                                                                      .set(
+                                                                          oggi);
+                                                                }
+                                                                controller
+                                                                    .clear();
+                                                                Navigator.pop(
+                                                                    context);
+                                                              },
+                                                              child: const Text(
+                                                                  "OK")),
+                                                          TextButton(
+                                                              onPressed: () =>
+                                                                  Navigator.pop(
+                                                                      context),
+                                                              child: const Text(
+                                                                  "Annulla"))
+                                                        ]),
+                                                  ),
+                                              icon: const Icon(Icons.add))),
+                                      context: context,
+                                      giornoScelto: oggi,
+                                      selezionato: DateTime.now()),
+                                ),
+                                /*Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: ListView.separated(
+                                    itemBuilder: (BuildContext context, int index) {
+                                      return ListTile(
+                                        title: Text(
+                                          oggi[index],
                                           textAlign: TextAlign.center,
                                         ),
                                         trailing: IconButton(
-                                            onPressed: () => showDialog(
-                                                  context: context,
-                                                  builder: (context) =>
-                                                      AlertDialog(
-                                                          title: const Text(
-                                                              "Aggiungi un evento"),
-                                                          content: TextField(
-                                                            controller:
-                                                                controller,
-                                                          ),
-                                                          actions: [
-                                                        TextButton(
-                                                            onPressed: () {
-                                                              if (controller
-                                                                  .value
-                                                                  .text
-                                                                  .isNotEmpty) {
-                                                                oggi.add(
-                                                                    controller
-                                                                        .value
-                                                                        .text);
-
-                                                                //print(oggi);
-                                                                database
-                                                                    .ref(
-                                                                        "calendario/$nomeOggi")
-                                                                    .set(oggi);
-                                                              }
-                                                              controller
-                                                                  .clear();
-                                                              Navigator.pop(
-                                                                  context);
-                                                            },
-                                                            child: const Text(
-                                                                "OK")),
-                                                        TextButton(
-                                                            onPressed: () =>
-                                                                Navigator.pop(
-                                                                    context),
-                                                            child: const Text(
-                                                                "Annulla"))
-                                                      ]),
-                                                ),
-                                            icon: const Icon(Icons.add))),
-                                    context: context,
-                                    giornoScelto: oggi,
-                                    selezionato: DateTime.now()),
-                              ),
-                              /*Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: ListView.separated(
-                                  itemBuilder: (BuildContext context, int index) {
-                                    return ListTile(
-                                      title: Text(
-                                        oggi[index],
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      trailing: IconButton(
-                                        onPressed: () {
-                                          oggi.removeAt(index);
-                                          database
-                                              .ref("calendario/$nomeOggi")
-                                              .set(oggi);
-                                        },
-                                        icon:
-                                            const Icon(Icons.remove_circle_outline),
-                                      ),
-                                    );
-                                  },
-                                  separatorBuilder:
-                                      (BuildContext context, int index) {
-                                    return const Divider();
-                                  },
-                                  itemCount: oggi.length,
+                                          onPressed: () {
+                                            oggi.removeAt(index);
+                                            database
+                                                .ref("calendario/$nomeOggi")
+                                                .set(oggi);
+                                          },
+                                          icon:
+                                              const Icon(Icons.remove_circle_outline),
+                                        ),
+                                      );
+                                    },
+                                    separatorBuilder:
+                                        (BuildContext context, int index) {
+                                      return const Divider();
+                                    },
+                                    itemCount: oggi.length,
+                                  ),
                                 ),
-                              ),
-                            )*/
-                            ],
+                              )*/
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  )
-                ],
-              )),
+                    )
+                  ],
+                )),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: CustomTable(),
+                )
+
+              ]),
               Positioned(
                 top: 10,
                 child: AnimatedOpacity(
@@ -485,34 +491,113 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   }
 }
 
+/*
 class ButtonAzione extends OutlinedButton {
-  ButtonAzione({super.key, required String info, required String testo})
+  static bool _mostraInviato = false;
+  ButtonAzione({super.key, required String info, required String testo,})
       : super(
-          onPressed: () {
-            //print("http://michelevantaggi.altervista.org/michelino/${info.isNotEmpty ? "$info&" : "?" }${altroToken.isNotEmpty ? "token=$altroToken" : ""}");
-            get(Uri.parse(
-                "http://michelevantaggi.altervista.org/michelino/${info.isNotEmpty ? "$info&" : "?" }${altroToken.isNotEmpty ? "&token=$altroToken" : ""}"));
+            onPressed: () {
+              //print("http://michelevantaggi.altervista.org/michelino/${info.isNotEmpty ? "$info&" : "?" }${altroToken.isNotEmpty ? "token=$altroToken" : ""}");
+              get(Uri.parse(
+                      "http://michelevantaggi.altervista.org/michelino/${info.isNotEmpty ? "$info&" : "?"}${altroToken.isNotEmpty ? "&token=$altroToken" : ""}"))
+                  .then((value) {
+                if(value.body == "true") {
 
-            //risposta.then((value) {print(value.body);});
-            //inviato = !michi;
+                  _mostraInviato = true;
+                  Future.delayed(const Duration(seconds: 2), () {
+                    _mostraInviato = false;
+                  },);
+                }else{
+                  print(value.body);
+                }
+              });
 
-            if (testo == "Invia partenza") {
-              launchUrl(
-                  mode: LaunchMode.externalNonBrowserApplication,
-                  Uri.parse("spotify:open"));
+              //risposta.then((value) {print(value.body);});
+              //inviato = !michi;
+
+              if (testo == "Invia partenza") {
+                launchUrl(
+                    mode: LaunchMode.externalNonBrowserApplication,
+                    Uri.parse("spotify:open"));
+              }
+            },
+            child: Padding(
+              padding: michi
+                  ? const EdgeInsets.all(0)
+                  : const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+              child: _mostraInviato ? const Icon(Icons.check) : Text(
+                testo,
+                textScaleFactor: michi ? null : 1.3,
+              ),
+            ));
+}
+*/
+class ButtonAzione extends StatefulWidget {
+  final String info;
+  final String testo;
+
+  ButtonAzione({
+    super.key,
+    required this.info,
+    required this.testo,
+  });
+
+  @override
+  State<StatefulWidget> createState() => StatoAzione();
+}
+
+class StatoAzione extends State<ButtonAzione> {
+  bool _mostraInviato = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+        onPressed: () {
+          //print("http://michelevantaggi.altervista.org/michelino/${info.isNotEmpty ? "$info&" : "?" }${altroToken.isNotEmpty ? "token=$altroToken" : ""}");
+          print("inviato");
+          get(Uri.parse(
+                  "http://michelevantaggi.altervista.org/michelino/${widget.info.isNotEmpty ? "${widget.info}&" : "?"}${altroToken.isNotEmpty ? "&token=$altroToken" : ""}"))
+              .then((value) {
+            if (value.body == "true") {
+              if (mounted) {
+                setState(() {
+                  _mostraInviato = true;
+                });
+              }
+              Future.delayed(
+                const Duration(seconds: 2),
+                () {
+                  if (mounted) {
+                    setState(() {
+                      _mostraInviato = false;
+                    });
+                  }
+                },
+              );
+            } else {
+              print(value.body);
             }
-          },
-          child: !michi
-              ? Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-                  child: Text(
-                    testo,
-                    textScaleFactor: 1.3,
-                  ),
-                )
+          });
+
+          //risposta.then((value) {print(value.body);});
+          //inviato = !michi;
+
+          if (widget.testo == "Invia partenza") {
+            launchUrl(
+                mode: LaunchMode.externalNonBrowserApplication,
+                Uri.parse("spotify:open"));
+          }
+        },
+        child: Padding(
+          padding: michi
+              ? const EdgeInsets.all(0)
+              : const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          child: _mostraInviato
+              ? const Icon(Icons.check)
               : Text(
-                  testo,
+                  widget.testo,
+                  textScaleFactor: michi ? null : 1.3,
                 ),
-        );
+        ));
+  }
 }
